@@ -1,0 +1,109 @@
+---
+// Define your navigation links here
+const navLinks = [
+  { href: '/nps', label: 'NPS - Trimestral' },
+  { href: '/#casos', label: 'Casos derivar / cerrar' },
+  { href: '/promotores', label: 'Promotores' },
+  { href: '/balance-mensual', label: 'Balance Mensual' },
+  // { href: '/metricas', label: 'Metricas trimestrales' },
+  { href: '/nps-individual', label: 'NPS-Individual' },
+];
+
+import Container from "./Container.astro"
+---
+
+<!-- CSS -->
+<style>
+  .main-content {
+    margin-top: 8rem;
+  }
+
+  .navbar-container {
+    padding-top: 2rem;
+  }
+
+  .login-button {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    color: #ffffff;
+    background-color: #4a5568;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s;
+  }
+
+  .login-button:hover {
+    background-color: #2d3748;
+  }
+
+  .login-icon {
+    margin-right: 0.5rem;
+  }
+</style>
+
+<!-- HTML -->
+<header class="mt-20">
+  <nav class="fixed top-0 left-0 z-50 w-full bg-white shadow-md">
+    <Container class="navbar-container">
+      <div class="flex flex-wrap items-center justify-between py-3 mx-auto">
+        <a href="/" class="flex items-center space-x-3 rtl:space-x-reverse">
+          <img src="/Logo.webp" class="w-44" alt="Logo" />
+        </a>
+        <button data-collapse-toggle="navbar-default" type="button" class="inline-flex items-center justify-center w-10 h-10 p-2 text-sm rounded-lg md:hidden focus:outline-none focus:ring-2" aria-controls="navbar-default" aria-expanded="false">
+          <span class="sr-only">Open main menu</span>
+          <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 17 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15" />
+          </svg>
+        </button>
+        <div class="hidden w-full md:flex md:items-center md:w-auto" id="navbar-default">
+          <ul class="flex flex-col p-4 mt-4 font-medium md:flex-row md:space-x-8 md:mt-0 md:p-0">
+            {navLinks.map(link => (
+              <li>
+                <a href={link.href} class="block px-3 py-2 text-black rounded md:bg-transparent md:p-0 hover:text-gray-700">{link.label}</a>
+              </li>
+            ))}
+          </ul>
+          <a href="/login" class="ml-4 login-button">
+            <svg class="w-5 h-5 login-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+            </svg>
+            Iniciar sesión
+          </a>
+        </div>
+      </div>
+    </Container>
+  </nav>
+</header>
+
+<main class="main-content">
+  <!-- Aquí va tu contenido principal -->
+</main>
+
+<script is:inline>
+document.addEventListener('DOMContentLoaded', () => {
+  const navbar = document.getElementById('navbar-default');
+  if (navbar) {
+    const toggleButton = document.querySelector('[data-collapse-toggle="navbar-default"]');
+    const navLinks = navbar.querySelectorAll('a');
+
+    if (toggleButton) {
+      toggleButton.addEventListener('click', () => {
+        navbar.classList.toggle('hidden');
+        navbar.classList.toggle('flex');
+      });
+    } else {
+      console.warn("Navbar toggle button not found. Toggle functionality might be affected.");
+    }
+
+    navLinks.forEach(link => link.addEventListener('click', () => {
+      if (window.innerWidth < 768) {
+        navbar.classList.add('hidden');
+        navbar.classList.remove('flex');
+      }
+    }));
+  } else {
+    console.warn("Navbar element with ID 'navbar-default' not found. Navigation functionality might be affected.");
+  }
+});
+</script>
