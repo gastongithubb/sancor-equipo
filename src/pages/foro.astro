@@ -6,9 +6,9 @@ import PostForm from '../components/PostForm.astro';
 // Simulamos una comprobación de autorización
 const isAuthorized = true; // En una aplicación real, esto vendría de tu sistema de autenticación
 
-const handleNewPost = (title: string, content: string) => {
-  // Aquí manejarías la lógica para guardar la nueva publicación
-  console.log('Nueva publicación:', { title, content });
+const handleSubmit = (title: string, content: string) => {
+  // Handle the form submission
+  console.log(title, content);
 };
 ---
 
@@ -21,7 +21,7 @@ const handleNewPost = (title: string, content: string) => {
     {isAuthorized && (
       <div class="mt-8">
         <h2 class="mb-4 text-2xl font-bold text-black">Crear Nueva Publicación</h2>
-        <PostForm client:load onSubmit={handleNewPost} />
+        <PostForm onSubmit={handleSubmit} />
       </div>
     )}
   </main>

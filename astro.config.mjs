@@ -1,13 +1,10 @@
 import { defineConfig } from 'astro/config';
 import react from "@astrojs/react";
-import preact from "@astrojs/preact";
+import tailwind from "@astrojs/tailwind";
 import vercel from "@astrojs/vercel/serverless";
 
-import tailwind from "@astrojs/tailwind";
-
-// https://astro.build/config
 export default defineConfig({
-  integrations: [react(), preact(), tailwind()],
+  integrations: [react(), tailwind()],
   output: "server",
   adapter: vercel(),
   envPrefix: 'PUBLIC_'
