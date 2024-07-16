@@ -1,11 +1,11 @@
 ---
-import EmployeeList from '../components/EmployeeList';
+import EmployeeList from '../components/EmployeeList.astro';
 import Layout from '../layouts/Layout.astro';
 import Container from '../components/Container.astro';
 ---
 
 <Layout title="Lista de Empleados">
   <Container>
-    <EmployeeList client:load />
+    <EmployeeList />
   </Container>
 </Layout>

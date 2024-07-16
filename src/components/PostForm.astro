@@ -1,0 +1,47 @@
+---
+// En Astro, las props se definen en la parte superior del componente
+export interface Props {
+  onSubmit: (title: string, content: string) => void;
+}
+
+const { onSubmit } = Astro.props;
+---
+
+<form id="postForm" class="p-4 space-y-4 rounded-lg bg-zinc-100">
+  <div>
+    <label for="title" class="block mb-2 text-black">Título</label>
+    <input
+      type="text"
+      id="title"
+      class="w-full p-2 border rounded border-zinc-300"
+      required
+    />
+  </div>
+  <div>
+    <label for="content" class="block mb-2 text-black">Contenido</label>
+    <textarea
+      id="content"
+      class="w-full p-2 border rounded border-zinc-300"
+      rows="4"
+      required
+    ></textarea>
+  </div>
+  <button type="submit" class="px-4 py-2 text-white rounded bg-lime hover:bg-opacity-90">
+    Publicar
+  </button>
+</form>
+
+<script define:vars={{ onSubmit }}>
+  const form = document.getElementById('postForm');
+  const titleInput = document.getElementById('title');
+  const contentInput = document.getElementById('content');
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = titleInput.value;
+    const content = contentInput.value;
+    onSubmit(title, content);
+    titleInput.value = '';
+    contentInput.value = '';
+  });
+</script>

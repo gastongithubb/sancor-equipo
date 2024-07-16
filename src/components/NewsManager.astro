@@ -1,0 +1,225 @@
+---
+import { getNews, type NovedadesRow } from './libs/database';
+
+let news: NovedadesRow[] = [];
+let error: string | null = null;
+
+try {
+  news = await getNews();
+} catch (err) {
+  console.error('Error fetching news:', err);
+  error = 'Error al obtener las noticias';
+}
+---
+
+<div class="max-w-4xl mx-auto p-6 bg-zinc-100 rounded-lg shadow-card font-SpaceGrotesk">
+  <h2 class="text-3xl font-bold mb-6 text-black">Gestor de Noticias</h2>
+  
+  {error && (
+    <div class="bg-red border-l-4 border-stone text-stone p-4 mb-6" role="alert">
+      <p>{error}</p>
+    </div>
+  )}
+
+  <form id="addNewsForm" class="mb-8 bg-white p-6 rounded-lg shadow-card">
+    <div class="mb-4">
+      <label for="url" class="block text-sm font-medium text-black mb-2">URL</label>
+      <input
+        type="text"
+        id="url"
+        name="url"
+        placeholder="https://ejemplo.com/noticia"
+        required
+        class="w-full px-3 py-2 placeholder-zinc-500 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime focus:border-transparent"
+      />
+    </div>
+    <div class="mb-4">
+      <label for="title" class="block text-sm font-medium text-black mb-2">Título</label>
+      <input
+        type="text"
+        id="title"
+        name="title"
+        placeholder="Título de la noticia"
+        required
+        class="w-full px-3 py-2 placeholder-zinc-500 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime focus:border-transparent"
+      />
+    </div>
+    <div class="mb-6">
+      <label for="publishDate" class="block text-sm font-medium text-black mb-2">Fecha de publicación</label>
+      <input
+        type="date"
+        id="publishDate"
+        name="publishDate"
+        required
+        class="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime focus:border-transparent"
+      />
+    </div>
+    <button type="submit" class="w-full bg-lime text-white py-2 px-4 rounded-md hover:bg-black focus:outline-none focus:ring-2 focus:ring-lime focus:ring-opacity-50 transition duration-300">
+      Añadir Noticia
+    </button>
+  </form>
+
+  <ul id="newsList" class="space-y-4">
+    {news.map((item) => (
+      <li class="bg-white p-4 rounded-lg shadow-card flex items-center justify-between transition duration-300 hover:shadow-lg">
+        <div>
+          <a href={item.url} target="_blank" rel="noopener noreferrer" class="text-lime hover:text-black font-medium">{item.title}</a>
+          <span class="text-sm text-zinc-500 ml-2">- {item.publishDate}</span>
+        </div>
+        <div class="space-x-2">
+          <button class="delete-news px-3 py-1 bg-red text-stone rounded hover:bg-stone hover:text-white focus:outline-none focus:ring-2 focus:ring-red focus:ring-opacity-50 transition duration-300" data-id={item.id}>
+            Eliminar
+          </button>
+          <button class="toggle-estado px-3 py-1 bg-zinc-300 text-stone rounded hover:bg-stone hover:text-white focus:outline-none focus:ring-2 focus:ring-zinc-300 focus:ring-opacity-50 transition duration-300" data-id={item.id}>
+            {item.estado === 1 ? 'Desactivar' : 'Activar'}
+          </button>
+        </div>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<script>
+  import { addNews, deleteNews, toggleEstadoNoticia, getNews, type NovedadesRow } from './libs/database';
+
+  let news: NovedadesRow[] = [];
+
+  const fetchNews = async (): Promise<void> => {
+    try {
+      news = await getNews();
+      renderNews();
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      showError('Error al obtener las noticias');
+    }
+  };
+
+  const renderNews = (): void => {
+    const newsList = document.getElementById('newsList');
+    if (!newsList) return;
+
+    newsList.innerHTML = news.map((item) => `
+      <li class="bg-white p-4 rounded-lg shadow-card flex items-center justify-between transition duration-300 hover:shadow-lg">
+        <div>
+          <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-lime hover:text-black font-medium">${item.title}</a>
+          <span class="text-sm text-zinc-500 ml-2">- ${item.publishDate}</span>
+        </div>
+        <div class="space-x-2">
+          <button class="delete-news px-3 py-1 bg-red text-stone rounded hover:bg-stone hover:text-white focus:outline-none focus:ring-2 focus:ring-red focus:ring-opacity-50 transition duration-300" data-id="${item.id}">
+            Eliminar
+          </button>
+          <button class="toggle-estado px-3 py-1 bg-zinc-300 text-stone rounded hover:bg-stone hover:text-white focus:outline-none focus:ring-2 focus:ring-zinc-300 focus:ring-opacity-50 transition duration-300" data-id="${item.id}">
+            ${item.estado === 1 ? 'Desactivar' : 'Activar'}
+          </button>
+        </div>
+      </li>
+    `).join('');
+
+    attachEventListeners();
+  };
+
+  const attachEventListeners = (): void => {
+    document.querySelectorAll('.delete-news').forEach(button => {
+      button.addEventListener('click', handleDeleteNews);
+    });
+
+    document.querySelectorAll('.toggle-estado').forEach(button => {
+      button.addEventListener('click', handleToggleEstado);
+    });
+  };
+
+  const handleAddNews = async (e: Event): Promise<void> => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const url = formData.get('url');
+    const title = formData.get('title');
+    const publishDate = formData.get('publishDate');
+
+    if (typeof url !== 'string' || typeof title !== 'string' || typeof publishDate !== 'string') {
+      showError('Datos del formulario inválidos');
+      return;
+    }
+
+    const newNewsItem = {
+      url,
+      title,
+      publishDate,
+      estado: 1
+    };
+
+    try {
+      await addNews(newNewsItem);
+      form.reset();
+      await fetchNews();
+      showSuccess('Noticia añadida con éxito');
+    } catch (error) {
+      console.error('Error adding news:', error);
+      showError('Error al añadir la noticia');
+    }
+  };
+
+  const handleDeleteNews = async (e: Event): Promise<void> => {
+    const target = e.target as HTMLElement;
+    const id = Number(target.dataset.id);
+    if (isNaN(id)) {
+      showError('ID de noticia inválido');
+      return;
+    }
+    try {
+      await deleteNews(id);
+      await fetchNews();
+      showSuccess('Noticia eliminada con éxito');
+    } catch (error) {
+      console.error('Error deleting news:', error);
+      showError('Error al eliminar la noticia');
+    }
+  };
+
+  const handleToggleEstado = async (e: Event): Promise<void> => {
+    const target = e.target as HTMLElement;
+    const id = Number(target.dataset.id);
+    if (isNaN(id)) {
+      showError('ID de noticia inválido');
+      return;
+    }
+    try {
+      await toggleEstadoNoticia(id);
+      await fetchNews();
+      showSuccess('Estado de la noticia actualizado con éxito');
+    } catch (error) {
+      console.error('Error toggling news state:', error);
+      showError('Error al cambiar el estado de la noticia');
+    }
+  };
+
+  const showError = (message: string): void => {
+    showMessage(message, 'error');
+  };
+
+  const showSuccess = (message: string): void => {
+    showMessage(message, 'success');
+  };
+
+  const showMessage = (message: string, type: 'error' | 'success'): void => {
+    const messageElement = document.createElement('div');
+    messageElement.textContent = message;
+    messageElement.className = `fixed top-4 right-4 p-4 rounded-md ${
+      type === 'error' ? 'bg-red' : 'bg-green'
+    } text-stone shadow-card transition-opacity duration-500`;
+    document.body.appendChild(messageElement);
+
+    setTimeout(() => {
+      messageElement.style.opacity = '0';
+      setTimeout(() => messageElement.remove(), 500);
+    }, 3000);
+  };
+
+  const addNewsForm = document.getElementById('addNewsForm');
+  if (addNewsForm) {
+    addNewsForm.addEventListener('submit', handleAddNews);
+  }
+  
+  // Fetch news on initial load
+  fetchNews();
+</script>

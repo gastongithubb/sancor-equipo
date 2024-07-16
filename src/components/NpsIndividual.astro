@@ -1,0 +1,248 @@
+---
+import { getUsers, type UserRow } from './libs/database';
+import { Loader2 } from 'lucide-react';
+
+let users: UserRow[] = [];
+let error: string | null = null;
+
+try {
+  users = await getUsers();
+} catch (err) {
+  console.error('Error al cargar usuarios:', err);
+  error = `Error al cargar las métricas: ${err instanceof Error ? err.message : String(err)}`;
+}
+---
+
+<div id="nps-individual">
+  <h1>Métricas - NPS Individual</h1>
+  <input
+    type="text"
+    id="searchInput"
+    placeholder="Buscar por nombre..."
+    style="margin-bottom: 20px; padding: 5px; width: 200px;"
+  />
+  {error ? (
+    <div class="flex flex-col items-center justify-center h-screen">
+      <p class="text-lg font-semibold text-red-600">{error}</p>
+    </div>
+  ) : (
+    <>
+      <div id="chart-container" style="width: 100%; height: 500px;"></div>
+      <div id="users-container" style="display: flex; flex-wrap: wrap; gap: 20px;"></div>
+    </>
+  )}
+</div>
+
+<script>
+  import { updateUser, type UserRow } from './libs/database';
+  import Chart from 'chart.js/auto';
+
+  let users: UserRow[] = [];
+  let chart: Chart | null = null;
+
+  const getColorForNps = (nps: number) => {
+    if (nps >= 15) return '#28a745';
+    if (nps >= 0) return '#ffc107';
+    return '#dc3545';
+  };
+
+  const getColorForCsatAndRd = (value: number) => {
+    if (value > 70) return '#28a745';
+    if (value >= 65) return '#ffc107';
+    return '#dc3545';
+  };
+
+  const renderChart = (filteredUsers: UserRow[]) => {
+    const chartContainer = document.getElementById('chart-container');
+    if (!chartContainer) return;
+
+    if (chart) {
+      chart.destroy();
+    }
+
+    const ctx = document.createElement('canvas');
+    chartContainer.appendChild(ctx);
+
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: filteredUsers.map(user => user.name),
+        datasets: [
+          {
+            label: 'Encuestas',
+            data: filteredUsers.map(user => user.responses),
+            backgroundColor: '#8884d8',
+          },
+          {
+            label: 'NPS',
+            data: filteredUsers.map(user => user.nps),
+            backgroundColor: filteredUsers.map(user => getColorForNps(user.nps)),
+          },
+          {
+            label: 'CSAT',
+            data: filteredUsers.map(user => user.csat),
+            backgroundColor: filteredUsers.map(user => getColorForCsatAndRd(user.csat)),
+          },
+          {
+            label: 'RD',
+            data: filteredUsers.map(user => user.rd),
+            backgroundColor: filteredUsers.map(user => getColorForCsatAndRd(user.rd)),
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            stacked: true,
+          },
+          y: {
+            stacked: true,
+          },
+        },
+      },
+    });
+  };
+
+  const renderUsers = (filteredUsers: UserRow[]) => {
+    const usersContainer = document.getElementById('users-container');
+    if (!usersContainer) return;
+
+    usersContainer.innerHTML = filteredUsers.map(user => `
+      <div key=${user.id} style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 300px;">
+        <h2>${user.name}</h2>
+        <div style="margin-bottom: 10px;">
+          <label>
+            Encuestas: 
+            <input 
+              type="number" 
+              value="${user.responses}" 
+              data-id="${user.id}"
+              data-field="responses"
+              class="user-input"
+              style="width: 100%;"
+            />
+          </label>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label>
+            NPS: 
+            <input 
+              type="number" 
+              value="${user.nps}" 
+              data-id="${user.id}"
+              data-field="nps"
+              class="user-input"
+              style="width: 100%;"
+            />
+          </label>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label>
+            CSAT: 
+            <input 
+              type="number" 
+              value="${user.csat}" 
+              data-id="${user.id}"
+              data-field="csat"
+              class="user-input"
+              style="width: 100%;"
+            />
+          </label>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label>
+            RD: 
+            <input 
+              type="number" 
+              value="${user.rd}" 
+              data-id="${user.id}"
+              data-field="rd"
+              class="user-input"
+              style="width: 100%;"
+            />
+          </label>
+        </div>
+        <button 
+          class="save-button"
+          data-id="${user.id}"
+          style="
+            width: 100%; 
+            padding: 10px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            transition: background-color 0.3s;
+          "
+        >
+          Guardar Cambios
+        </button>
+      </div>
+    `).join('');
+
+    usersContainer.querySelectorAll('.user-input').forEach(input => {
+      input.addEventListener('change', handleChange);
+    });
+
+    usersContainer.querySelectorAll('.save-button').forEach(button => {
+      button.addEventListener('click', handleSave);
+      button.addEventListener('mouseover', (e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#0056b3');
+      button.addEventListener('mouseout', (e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#007bff');
+    });
+  };
+
+  const handleChange = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const { id, field } = input.dataset;
+    if (id && field) {
+      const value = Number(input.value);
+      users = users.map(user => 
+        user.id === Number(id) ? { ...user, [field]: value } : user
+      );
+      renderChart(filterUsers());
+    }
+  };
+
+  const handleSave = async (e: Event) => {
+    const button = e.target as HTMLButtonElement;
+    const { id } = button.dataset;
+    if (id) {
+      const user = users.find(u => u.id === Number(id));
+      if (user) {
+        try {
+          await updateUser(user);
+          alert('Usuario actualizado con éxito');
+        } catch (err) {
+          console.error('Error al actualizar el usuario:', err);
+          alert(`Error al actualizar el usuario: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+  };
+
+  const filterUsers = () => {
+    const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+    const searchTerm = searchInput.value.toLowerCase();
+    return users.filter(user => user.name.toLowerCase().includes(searchTerm));
+  };
+
+  const initialize = async () => {
+    const response = await fetch('/api/users');
+    users = await response.json();
+    renderChart(users);
+    renderUsers(users);
+
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const filteredUsers = filterUsers();
+        renderChart(filteredUsers);
+        renderUsers(filteredUsers);
+      });
+    }
+  };
+
+  initialize();
+</script>

@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
+import { useState, useEffect } from 'preact/hooks';
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { 
+  Card, CardContent, CardHeader, CardTitle, 
+  Button, Input, 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from './ui/ComponentsUi';
 
 interface Metrics {
   pec: number;
@@ -11,7 +16,7 @@ interface Metrics {
   rd: number[];
 }
 
-type MetricKey = keyof Metrics;
+type MetricKey = keyof Pick<Metrics, 'responses' | 'nps' | 'csat' | 'rd'>;
 
 interface DarkMetricsDashboardProps {
   initialMetrics?: Partial<Metrics>;
@@ -19,22 +24,30 @@ interface DarkMetricsDashboardProps {
 
 const monthsNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-const DarkMetricsDashboard: React.FC<DarkMetricsDashboardProps> = ({ initialMetrics = {} }) => {
-  const [metrics, setMetrics] = useState<Metrics>({
-    pec: 80,
-    npsObj: 20,
-    months: ['Marzo', 'Abril', 'Mayo'],
-    responses: [422, 396, 460],
-    nps: [5, 4, 15],
-    csat: [68, 69, 75],
-    rd: [68, 68, 71],
-    ...initialMetrics
+// Definimos componentes con tipos más específicos para Preact
+const PreactResponsiveContainer = ResponsiveContainer as any;
+const PreactLineChart = LineChart as any;
+const PreactXAxis = XAxis as any;
+const PreactYAxis = YAxis as any;
+const PreactTooltip = Tooltip as any;
+const PreactLegend = Legend as any;
+const PreactLine = Line as any;
+
+const DarkMetricsDashboard = ({ initialMetrics = {} }: DarkMetricsDashboardProps) => {
+  const [metrics, setMetrics] = useState<Metrics>(() => {
+    const defaultMetrics: Metrics = {
+      pec: 80,
+      npsObj: 20,
+      months: ['Marzo', 'Abril', 'Mayo'],
+      responses: [422, 396, 460],
+      nps: [5, 4, 15],
+      csat: [68, 69, 75],
+      rd: [68, 68, 71],
+    };
+    return { ...defaultMetrics, ...initialMetrics };
   });
 
-  const [isClient, setIsClient] = useState(false);
-
   useEffect(() => {
-    setIsClient(true);
     const storedMetrics = localStorage.getItem('metrics');
     if (storedMetrics) {
       setMetrics(JSON.parse(storedMetrics));
@@ -45,25 +58,19 @@ const DarkMetricsDashboard: React.FC<DarkMetricsDashboardProps> = ({ initialMetr
     localStorage.setItem('metrics', JSON.stringify(metrics));
   }, [metrics]);
 
-  const handleMetricChange = (metric: MetricKey, value: string, index?: number) => {
+  const handleMetricChange = (metric: keyof Metrics, value: string, index?: number) => {
     setMetrics(prevMetrics => {
       const newMetrics = { ...prevMetrics };
       const numValue = parseFloat(value);
-  
+
       if (index !== undefined && Array.isArray(newMetrics[metric])) {
         (newMetrics[metric] as number[])[index] = numValue;
       } else if (typeof newMetrics[metric] === 'number') {
         (newMetrics[metric] as number) = numValue;
       }
-  
+
       return newMetrics;
     });
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, metric: MetricKey, index?: number) => {
-    if (e.target.value) { // Verifica que e.target.value exista
-      handleMetricChange(metric, e.target.value, index);
-    }
   };
 
   const addMonth = () => {
@@ -84,123 +91,111 @@ const DarkMetricsDashboard: React.FC<DarkMetricsDashboardProps> = ({ initialMetr
 
   const removeMonth = (indexToRemove: number) => {
     setMetrics(prevMetrics => {
-      const newMonths = prevMetrics.months.filter((_, index) => index !== indexToRemove);
-      const newResponses = prevMetrics.responses.filter((_, index) => index !== indexToRemove);
-      const newNps = prevMetrics.nps.filter((_, index) => index !== indexToRemove);
-      const newCsat = prevMetrics.csat.filter((_, index) => index !== indexToRemove);
-      const newRd = prevMetrics.rd.filter((_, index) => index !== indexToRemove);
-
-      return {
-        ...prevMetrics,
-        months: newMonths,
-        responses: newResponses,
-        nps: newNps,
-        csat: newCsat,
-        rd: newRd,
-      };
+      const newMetrics = { ...prevMetrics };
+      (['months', 'responses', 'nps', 'csat', 'rd'] as const).forEach(key => {
+        newMetrics[key] = newMetrics[key].filter((_, index) => index !== indexToRemove) as any;
+      });
+      return newMetrics;
     });
   };
 
-  const chartData = {
-    labels: metrics.months,
-    datasets: [
-      {
-        label: 'NPS',
-        data: metrics.nps,
-        borderColor: '#4fd1c5',
-        fill: false,
-      },
-      {
-        label: 'Responses',
-        data: metrics.responses,
-        borderColor: '#8884d8',
-        fill: false,
-      },
-      {
-        label: 'CSAT',
-        data: metrics.csat,
-        borderColor: '#82ca9d',
-        fill: false,
-      },
-      {
-        label: 'RD',
-        data: metrics.rd,
-        borderColor: '#ffc658',
-        fill: false,
-      },
-    ],
-  };
+  const chartData = metrics.months.map((month, index) => ({
+    name: month,
+    nps: metrics.nps[index],
+    responses: metrics.responses[index],
+    csat: metrics.csat[index],
+    rd: metrics.rd[index]
+  }));
 
   return (
-    <div className="p-6 text-black bg-gray-900 rounded-lg shadow-lg">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h1 className="text-3xl font-bold">Metricas Trimestrales</h1>
-          <p className="text-teal-400">
-            PEC (calidad) Obj.: 
-            <input
-              type="number"
-              value={metrics.pec}
-              onChange={(e) => handleMetricChange('pec', e.target.value)}
-              className="w-16 ml-2 bg-transparent border-b border-teal-400 focus:outline-none"
-            />%
-          </p>
+    <Card className="w-full max-w-4xl mx-auto">
+      <CardHeader>
+        <CardTitle>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-white">Metricas Trimestrales</h1>
+              <p className="text-teal-400">
+                PEC (calidad) Obj.:
+                <Input
+                  type="number"
+                  value={metrics.pec}
+                  onChange={(e) => handleMetricChange('pec', (e.target as HTMLInputElement).value)}
+                  className="w-16 ml-2 bg-transparent border-b border-teal-400"
+                />%
+              </p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-4xl font-bold text-white">
+                NPS Obj.:
+                <Input
+                  type="number"
+                  value={metrics.npsObj}
+                  onChange={(e) => handleMetricChange('npsObj', (e.target as HTMLInputElement).value)}
+                  className="w-20 ml-2 bg-transparent border-b border-teal-400"
+                />%
+              </h2>
+            </div>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="h-64 mb-6">
+          <PreactResponsiveContainer width="100%" height="100%">
+            <PreactLineChart data={chartData}>
+              <PreactXAxis dataKey="name" stroke="#ffffff" />
+              <PreactYAxis stroke="#ffffff" />
+              <PreactTooltip />
+              <PreactLegend />
+              <PreactLine type="monotone" dataKey="nps" stroke="#4fd1c5" strokeWidth={2} />
+              <PreactLine type="monotone" dataKey="responses" stroke="#8884d8" strokeWidth={2} />
+              <PreactLine type="monotone" dataKey="csat" stroke="#82ca9d" strokeWidth={2} />
+              <PreactLine type="monotone" dataKey="rd" stroke="#ffc658" strokeWidth={2} />
+            </PreactLineChart>
+          </PreactResponsiveContainer>
         </div>
-        <div className="text-right">
-          <h2 className="text-4xl font-bold">NPS Obj.: 
-            <input
-              type="number"
-              value={metrics.npsObj}
-              onChange={(e) => handleMetricChange('npsObj', e.target.value)}
-              className="w-20 ml-2 bg-transparent border-b border-teal-400 focus:outline-none"
-            />%
-          </h2>
-        </div>
-      </div>
-      
-      {isClient && (
-        <div className="h-64 mb-6 chart-container">
-          <Line data={chartData} />
-        </div>
-      )}
 
-      <button onClick={addMonth} className="px-4 py-2 mb-4 text-black bg-teal-500 rounded">
-        Añadir Mes
-      </button>
-      
-      <table className="w-full text-left">
-        <thead>
-          <tr className="border-b border-gray-700">
-            <th className="py-2">Métricas</th>
-            {metrics.months.map((month, index) => (
-              <th key={index} className="flex items-center justify-between py-2">
-                {month}
-                <button onClick={() => removeMonth(index)} className="ml-2 text-red-500">
-                  ✕
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {(['responses', 'nps', 'csat', 'rd'] as const).map(metric => (
-            <tr key={metric} className="border-b border-gray-800">
-              <td className="py-2 text-teal-400">{metric === 'responses' ? 'Q de respuestas' : metric.toUpperCase()}</td>
-              {metrics[metric].map((value, index) => (
-                <td key={index} className="py-2">
-                  <input
-                    type="number"
-                    value={value}
-                    onChange={(e) => handleMetricChange(metric, e.target.value, index)}
-                    className="w-full text-black bg-transparent focus:outline-none"
-                  />
-                </td>
+        <Button onClick={addMonth} className="mb-4">
+          Añadir Mes
+        </Button>
+        
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Métricas</TableHead>
+              {metrics.months.map((month, index) => (
+                <TableHead key={index}>
+                  <div className="flex justify-between items-center">
+                    {month}
+                    <Button onClick={() => removeMonth(index)} variant="ghost" className="text-red-500 p-1">
+                      ✕
+                    </Button>
+                  </div>
+                </TableHead>
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(['responses', 'nps', 'csat', 'rd'] as const).map(metric => (
+              <TableRow key={metric}>
+                <TableCell className="font-medium text-teal-400">
+                  {metric === 'responses' ? 'Q de respuestas' : metric.toUpperCase()}
+                </TableCell>
+                {metrics[metric].map((value, index) => (
+                  <TableCell key={index}>
+                    <Input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleMetricChange(metric, (e.target as HTMLInputElement).value, index)}
+                      className="w-full bg-transparent"
+                    />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 };
 

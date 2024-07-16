@@ -1,0 +1,227 @@
+---
+import { Loader2 } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from './ui/ComponentsUi';
+import { 
+  getEmployees, 
+  updateEmployeeXLite, 
+  getBreakSchedules, 
+  updateBreakSchedule, 
+  type EmployeeRow, 
+  type BreakScheduleRow
+} from './libs/database';
+
+const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+const currentYear = new Date().getFullYear();
+const currentMonth = new Date().getMonth() + 1;
+
+let employees: EmployeeRow[] = [];
+let breakSchedules: Record<number, BreakScheduleRow[]> = {};
+let error: string | null = null;
+
+try {
+  employees = await getEmployees();
+  for (const employee of employees) {
+    breakSchedules[employee.id] = await getBreakSchedules(employee.id, currentMonth, currentYear);
+  }
+} catch (err) {
+  console.error('Error fetching data:', err);
+  error = `Error al cargar los datos: ${err instanceof Error ? err.message : String(err)}`;
+}
+---
+
+<div class="container p-4 mx-auto">
+  <h2 class="mb-4 text-2xl font-bold">Programacion Semanal</h2>
+  
+  {error && (
+    <div class="flex flex-col items-center justify-center h-screen">
+      <p class="text-lg font-semibold text-red-600">{error}</p>
+    </div>
+  )}
+
+  {!error && employees.length === 0 ? (
+    <p>No hay empleados para mostrar.</p>
+  ) : (
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Apellido y Nombre</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>DNI</TableHead>
+            <TableHead>Ingreso</TableHead>
+            <TableHead>Egreso</TableHead>
+            <TableHead>Hs. Trabajo</TableHead>
+            <TableHead>X LITE</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {employees.map((employee) => (
+            <TableRow>
+              <TableCell>{employee.lastName} {employee.firstName}</TableCell>
+              <TableCell>{employee.email}</TableCell>
+              <TableCell>{employee.dni}</TableCell>
+              <TableCell>{employee.entryTime}</TableCell>
+              <TableCell>{employee.exitTime}</TableCell>
+              <TableCell>{employee.hoursWorked}</TableCell>
+              <TableCell>
+                <input 
+                  type="text" 
+                  value={employee.xLite || ''} 
+                  data-employee-id={employee.id}
+                  class="px-2 py-1 border rounded x-lite-input"
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <button 
+        id="saveEmployeeChanges"
+        class="px-4 py-2 mt-4 font-bold text-white rounded bg-[#000] hover:bg-black"
+      >
+        Guardar Cambios en Empleados
+      </button>
+
+      <h3 class="mt-8 mb-4 text-xl font-bold">Horarios de Break</h3>
+      <div class="mb-4">
+        <input
+          type="text"
+          placeholder="Buscar empleado..."
+          id="searchInput"
+          class="w-full px-2 py-1 border rounded"
+        />
+      </div>
+      {employees.map((employee) => (
+        <div class="mb-8 employee-break-schedule" data-employee-id={employee.id}>
+          <h4 class="mb-2 text-lg font-semibold">{employee.firstName} {employee.lastName}</h4>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Día</TableHead>
+                <TableHead>Semana 1</TableHead>
+                <TableHead>Semana 2</TableHead>
+                <TableHead>Semana 3</TableHead>
+                <TableHead>Semana 4</TableHead>
+                <TableHead>Semana 5</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {days.map((day) => (
+                <TableRow>
+                  <TableCell>{day}</TableCell>
+                  {[1, 2, 3, 4, 5].map((week) => {
+                    const schedule = breakSchedules[employee.id]?.find(s => 
+                      s.day === day && s.week === week && s.month === currentMonth && s.year === currentYear
+                    ) || { startTime: '' };
+                    return (
+                      <TableCell>
+                        <input 
+                          type="time" 
+                          value={schedule.startTime} 
+                          data-employee-id={employee.id}
+                          data-day={day}
+                          data-week={week}
+                          class="px-2 py-1 border rounded break-schedule-input"
+                        />
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ))}
+      <button 
+        id="saveBreakChanges"
+        class="px-4 py-2 mt-4 font-bold text-white rounded bg-[#000] hover:bg-black"
+      >
+        Guardar Cambios en Horarios de Break
+      </button>
+    </>
+  )}
+</div>
+
+<script>
+  import { updateEmployeeXLite, updateBreakSchedule } from './libs/database';
+
+  const saveEmployeeChanges = async () => {
+    const xLiteInputs = document.querySelectorAll('.x-lite-input') as NodeListOf<HTMLInputElement>;
+    const changes: Record<string, string> = {};
+
+    xLiteInputs.forEach((input) => {
+      const employeeId = input.dataset.employeeId;
+      const xLite = input.value;
+      if (employeeId) {
+        changes[employeeId] = xLite;
+      }
+    });
+
+    try {
+      for (const [id, xLite] of Object.entries(changes)) {
+        await updateEmployeeXLite(Number(id), xLite);
+      }
+      alert('Cambios en empleados guardados exitosamente');
+    } catch (error) {
+      console.error('Error saving employee changes:', error);
+      alert(`Error al guardar los cambios en empleados: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const saveBreakChanges = async () => {
+    const breakInputs = document.querySelectorAll('.break-schedule-input') as NodeListOf<HTMLInputElement>;
+    const changes: Array<{
+      employeeId: number;
+      day: string;
+      week: number;
+      month: number;
+      year: number;
+      startTime: string;
+      endTime: string;
+    }> = [];
+
+    breakInputs.forEach((input) => {
+      const { employeeId, day, week } = input.dataset;
+      const startTime = input.value;
+      if (employeeId && day && week && startTime) {
+        changes.push({
+          employeeId: Number(employeeId),
+          day,
+          week: Number(week),
+          month: new Date().getMonth() + 1,
+          year: new Date().getFullYear(),
+          startTime,
+          endTime: ''
+        });
+      }
+    });
+
+    try {
+      for (const schedule of changes) {
+        await updateBreakSchedule(schedule);
+      }
+      alert('Cambios en horarios de break guardados exitosamente');
+    } catch (error) {
+      console.error('Error saving break changes:', error);
+      alert(`Error al guardar los cambios en horarios de break: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const filterEmployees = () => {
+    const searchTerm = (document.getElementById('searchInput') as HTMLInputElement)?.value.toLowerCase();
+    const employeeSchedules = document.querySelectorAll('.employee-break-schedule');
+
+    employeeSchedules.forEach((schedule) => {
+      const employeeName = schedule.querySelector('h4')?.textContent?.toLowerCase() || '';
+      if (employeeName.includes(searchTerm)) {
+        (schedule as HTMLElement).style.display = 'block';
+      } else {
+        (schedule as HTMLElement).style.display = 'none';
+      }
+    });
+  };
+
+  document.getElementById('saveEmployeeChanges')?.addEventListener('click', saveEmployeeChanges);
+  document.getElementById('saveBreakChanges')?.addEventListener('click', saveBreakChanges);
+  document.getElementById('searchInput')?.addEventListener('input', filterEmployees);
+</script>
