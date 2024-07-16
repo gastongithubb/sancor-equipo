@@ -1,0 +1,6 @@
+{
+    "scripts": {
+      "build": "astro build && cp ./config.json ./.vercel/output/config.json"
+    }
+  }
+  
